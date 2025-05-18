@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mandelbrot Interactive</title>
+    <style>
+      canvas {
+        display: block;
+        margin: auto;
+        background: black;
+        cursor: grab;
+      }
+      body {
+        background-color: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="mandelbrot" width="800" height="600"></canvas>
+
+    <script>
+      const canvas = document.getElementById("mandelbrot");
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width;
+      const height = canvas.height;
+      const imageData = ctx.createImageData(width, height);
+
+      // 초기 복소 평면 영역
+      let xmin = -2.5,
+        xmax = 1;
+      let ymin = -1.2,
+        ymax = 1.2;
+
+      const maxIter = 300;
+
+      let isDragging = false;
+      let dragStart = { x: 0, y: 0 };
+
+      // 변환 도우미
+      function screenToComplex(px, py) {
+        const x = xmin + (px / width) * (xmax - xmin);
+        const y = ymin + (py / height) * (ymax - ymin);
+        return { x, y };
+      }
+
+      function mandelbrot(c_re, c_im) {
+        let z_re = 0,
+          z_im = 0;
+        let i = 0;
+        while (z_re * z_re + z_im * z_im <= 4 && i < maxIter) {
+          const z_re2 = z_re * z_re - z_im * z_im + c_re;
+          z_im = 2 * z_re * z_im + c_im;
+          z_re = z_re2;
+          i++;
+        }
+        return i;
+      }
+
+      function draw() {
+        for (let px = 0; px < width; px++) {
+          for (let py = 0; py < height; py++) {
+            const { x, y } = screenToComplex(px, py);
+            const iter = mandelbrot(x, y);
+            const color =
+              iter === maxIter
+                ? [0, 0, 0]
+                : [255 - iter * 5, iter * 3, (iter * 8) % 255];
+            const index = (py * width + px) * 4;
+            imageData.data[index] = color[0];
+            imageData.data[index + 1] = color[1];
+            imageData.data[index + 2] = color[2];
+            imageData.data[index + 3] = 255;
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      // 줌 기능
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const zoom = e.deltaY < 0 ? 0.9 : 1.1;
+        const { x: cx, y: cy } = screenToComplex(e.offsetX, e.offsetY);
+
+        const xrange = xmax - xmin;
+        const yrange = ymax - ymin;
+
+        xmin = cx - (cx - xmin) * zoom;
+        xmax = cx + (xmax - cx) * zoom;
+        ymin = cy - (cy - ymin) * zoom;
+        ymax = cy + (ymax - cy) * zoom;
+
+        draw();
+      });
+
+      // 드래그 이동 기능
+      canvas.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        dragStart.x = e.offsetX;
+        dragStart.y = e.offsetY;
+        canvas.style.cursor = "grabbing";
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        isDragging = false;
+        canvas.style.cursor = "grab";
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        isDragging = false;
+        canvas.style.cursor = "grab";
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+          const dx = e.offsetX - dragStart.x;
+          const dy = e.offsetY - dragStart.y;
+          const xRange = xmax - xmin;
+          const yRange = ymax - ymin;
+
+          const moveX = -(dx / width) * xRange;
+          const moveY = -(dy / height) * yRange;
+
+          xmin += moveX;
+          xmax += moveX;
+          ymin += moveY;
+          ymax += moveY;
+
+          dragStart.x = e.offsetX;
+          dragStart.y = e.offsetY;
+
+          draw();
+        }
+      });
+
+      draw();
+    </script>
+  </body>
+</html>
